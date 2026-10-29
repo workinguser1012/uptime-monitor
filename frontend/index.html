@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uptime Monitor</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#0f172a;color:#e2e8f0}
+form{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0}
+input{padding:.5rem;border-radius:6px;border:1px solid #334155;background:#1e293b;color:inherit;flex:1;min-width:150px}
+button{padding:.5rem .9rem;border:0;border-radius:6px;background:#2563eb;color:#fff;cursor:pointer}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.55rem .4rem;border-bottom:1px solid #334155}
+.pill{padding:.1rem .6rem;border-radius:999px;font-weight:600;font-size:.85rem}.up{background:#16a34a}.down{background:#dc2626}.none{background:#475569}
+#msg{color:#fca5a5;min-height:1.2rem}footer{margin-top:2rem;color:#94a3b8;font-size:.85rem}
+</style></head><body>
+<h1>Uptime Monitor</h1>
+<form id="f"><input id="name" placeholder="Name" required maxlength="60">
+<input id="url" placeholder="https://example.com" required><button>Add site</button></form>
+<div id="msg"></div>
+<table><thead><tr><th>Site</th><th>Status</th><th>Response</th><th>24h uptime</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<footer id="foot"></footer>
+<script>
+const $ = id => document.getElementById(id);
+function cell(tr, text){ const td = tr.insertCell(); td.textContent = text; return td; }
+async function load(){
+  const d = await (await fetch('/api/sites')).json();
+  const body = $('rows'); body.replaceChildren();
+  for (const s of d.sites){
+    const tr = body.insertRow(); cell(tr, s.name);
+    const st = cell(tr, ''); const p = document.createElement('span');
+    p.className = 'pill ' + (s.up === null ? 'none' : s.up ? 'up' : 'down');
+    p.textContent = s.up === null ? 'PENDING' : s.up ? 'UP' : 'DOWN'; st.append(p);
+    cell(tr, s.latency_ms == null ? '-' : s.latency_ms + ' ms');
+    cell(tr, s.uptime_24h == null ? '-' : s.uptime_24h + '%');
+    const x = cell(tr, ''); const b = document.createElement('button'); b.textContent = 'Remove';
+    b.onclick = async () => { await fetch('/api/sites/' + s.id, {method:'DELETE'}); load(); }; x.append(b);
+  }
+  $('foot').textContent = 'served by ' + d.served_by + ' | version ' + d.version;
+}
+$('f').onsubmit = async e => {
+  e.preventDefault();
+  const r = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name:$('name').value, url:$('url').value})});
+  $('msg').textContent = r.ok ? '' : (await r.json()).error;
+  if (r.ok) $('f').reset(); load();
+};
+load(); setInterval(load, 15000);
+</script></body></html>
