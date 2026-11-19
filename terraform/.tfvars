@@ -1,0 +1,1 @@
+frontend_image = "351458007780.dkr.ecr.eu-north-1.amazonaws.com/uptime-monitor-frontend:2699c93"

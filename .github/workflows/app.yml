@@ -1,0 +1,46 @@
+name: app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      matrix:
+        service: [api, worker, frontend]
+    steps:
+      - name: Get my code
+        uses: actions/checkout@v4
+
+      - name: Work out the image tag
+        run: echo "TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Build the ${{ matrix.service }} image
+        run: docker build --build-arg GIT_SHA="$TAG" -t uptime-monitor-${{ matrix.service }}:$TAG ./${{ matrix.service }}
+
+      - name: Log in to AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.ECR_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push the image (skip if this tag already exists)
+        run: |
+          REPO=uptime-monitor-${{ matrix.service }}
+          if aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$TAG" > /dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping push"
+          else
+            docker tag "$REPO:$TAG" "${{ steps.ecr.outputs.registry }}/$REPO:$TAG"
+            docker push "${{ steps.ecr.outputs.registry }}/$REPO:$TAG"
+          fi
+
