@@ -1,1 +1,15 @@
 .env
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Sensitive files
+*.tfvars
+*.tfvars.json
+.env
+.env.*
