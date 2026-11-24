@@ -1,0 +1,64 @@
+name: terraform-apply
+
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (leave blank to use this commit's short SHA)"
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-state
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: production   
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the image tag
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          TAG="${INPUT_TAG:-${GITHUB_SHA::7}}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "IMAGE=${{ vars.ECR_REGISTRY }}/uptime-monitor-frontend:$TAG" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "^1.11.0"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Check the image exists in ECR
+        run: |
+          aws ecr describe-images --repository-name uptime-monitor-frontend \
+            --image-ids imageTag="$TAG" > /dev/null \
+            || { echo "::error::Image tag $TAG not found. Run the app pipeline on main first."; exit 1; }
+
+      - name: Init
+        run: terraform init -input=false
+
+      - name: Plan
+        run: terraform plan -input=false -out=tfplan -var "frontend_image=$IMAGE"
+
+      - name: Apply
+        run: terraform apply -input=false tfplan
+
+      - name: Show outputs
+        run: terraform output
