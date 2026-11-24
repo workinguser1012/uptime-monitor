@@ -1,0 +1,45 @@
+name: terraform-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type destroy to confirm"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-state
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    if: ${{ inputs.confirm == 'destroy' }}
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "^1.11.0"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Init
+        run: terraform init -input=false
+
+      
+      - name: Destroy
+        run: terraform destroy -input=false -auto-approve -var "frontend_image=${{ vars.ECR_REGISTRY }}/uptime-monitor-frontend:destroy-placeholder"
