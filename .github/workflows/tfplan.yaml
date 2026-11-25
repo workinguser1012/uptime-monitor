@@ -5,7 +5,7 @@ on:
   pull_request:
     paths:
       - "terraform/**"
-      - ".github/workflows/tf-*.yml"
+      - ".github/workflows/tf*.yml"
 
 permissions:
   id-token: write
