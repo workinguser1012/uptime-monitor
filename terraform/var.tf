@@ -25,5 +25,5 @@ variable "domain_name" {
 
 variable "frontend_image" {
   type        = string
-  description = "Full ECR image URI ending in the git  tag"
+  description = "Full ECR image URI ending in the git SHA tag"
 }
