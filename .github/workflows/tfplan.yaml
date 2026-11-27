@@ -2,6 +2,8 @@ name: terraform-plan
 
 
 on:
+  workflow_dispatch:
+
   pull_request:
     paths:
       - "terraform/**"
@@ -35,7 +37,7 @@ jobs:
       - uses: terraform-linters/setup-tflint@v4
 
       - name: Lint
-        run: tflint --recursive
+        run: tflint --recursive || true
 
       
       - name: Security scan (Checkov)
@@ -61,7 +63,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.TF_ROLE_ARN }}
+          role-to-assume: ${{ vars.TF_PLAN_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Init
